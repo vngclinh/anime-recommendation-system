@@ -2,18 +2,9 @@ import os
 import re
 import streamlit as st
 
-# ===============================
-# PAGE CONFIG
-# ===============================
-st.set_page_config(
-    page_title="Anime EDA Visualizations",
-    layout="wide",
-    page_icon="📊"
-)
-
 PLOT_DIR = "artifacts/plots"
 
-# Optional: mapping đẹp hơn cho một số file bạn đã tạo
+# Optional: nicer titles/descriptions for known plots
 PLOT_META = {
     "top_anime_community.png": {
         "title": "Top Anime Community",
@@ -57,55 +48,45 @@ PLOT_META = {
     },
 }
 
-def filename_to_title(fname: str) -> str:
+def _filename_to_title(fname: str) -> str:
     base = os.path.splitext(fname)[0]
     base = base.replace("-", " ").replace("_", " ").strip()
     base = re.sub(r"\s+", " ", base)
-    # Title case but keep common acronyms nicer
-    title = base.title().replace("Tv", "TV").replace("Ova", "OVA").replace("Ona", "ONA")
-    return title
+    return base.title().replace("Tv", "TV").replace("Ova", "OVA").replace("Ona", "ONA")
 
-def filename_to_desc(fname: str) -> str:
-    # English fallback description
-    title = filename_to_title(fname)
-    return f"Visualization: {title}."
+def _filename_to_desc(fname: str) -> str:
+    return f"Visualization: {_filename_to_title(fname)}."
 
-def load_plot_files(plot_dir: str):
+def _load_plot_files(plot_dir: str):
     if not os.path.exists(plot_dir):
         return []
     files = [f for f in os.listdir(plot_dir) if f.lower().endswith(".png")]
     files.sort()
     return files
 
-# ===============================
-# UI
-# ===============================
-st.title("📊 Anime EDA Visualizations")
-st.caption("This page automatically displays all saved plots from `artifacts/plots/`.")
+def render():
+    st.title("📊 Anime EDA Visualizations")
+    st.caption("This page automatically displays all saved plots from `artifacts/plots/`.")
 
-st.divider()
+    st.divider()
 
-plot_files = load_plot_files(PLOT_DIR)
+    plot_files = _load_plot_files(PLOT_DIR)
+    if not plot_files:
+        st.warning("No plot images were found in `artifacts/plots/`.")
+        return
 
-if not plot_files:
-    st.warning("No plot images were found in `artifacts/plots/`.")
-    st.stop()
+    # One image per row, full width
+    for fname in plot_files:
+        meta = PLOT_META.get(fname)
+        title = meta["title"] if meta else _filename_to_title(fname)
+        desc  = meta["desc"]  if meta else _filename_to_desc(fname)
 
-# ===============================
-# 1 IMAGE PER ROW
-# ===============================
-for fname in plot_files:
-    meta = PLOT_META.get(fname, None)
-    title = meta["title"] if meta else filename_to_title(fname)
-    desc  = meta["desc"]  if meta else filename_to_desc(fname)
+        img_path = os.path.join(PLOT_DIR, fname)
 
-    img_path = os.path.join(PLOT_DIR, fname)
+        with st.container(border=True):
+            st.subheader(title)
+            st.write(desc)
+            st.image(img_path, use_container_width=True)
 
-    # Card-like section per image
-    with st.container(border=True):
-        st.subheader(title)
-        st.write(desc)
-        st.image(img_path, use_container_width=True)
-
-st.divider()
-st.caption("Tip: Add a new PNG file into `artifacts/plots/` and it will appear here automatically.")
+    st.divider()
+    st.caption("Tip: Add a new PNG into `artifacts/plots/` and it will appear here automatically.")
