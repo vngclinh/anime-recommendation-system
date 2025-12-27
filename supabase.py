@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
+from urllib.parse import quote_plus
 import os
 from dotenv import load_dotenv
 
@@ -14,11 +15,16 @@ def _required_env(name: str) -> str:
 DATABASE_URL = URL.create(
     "postgresql+psycopg2",
     username=_required_env("SUPABASE_DB_USER"),
-    password=_required_env("SUPABASE_DB_PASSWORD"),
+    password=quote_plus(_required_env("SUPABASE_DB_PASSWORD")),
     host=_required_env("SUPABASE_DB_HOST"),
     port=int(_required_env("SUPABASE_DB_PORT")),
     database=_required_env("SUPABASE_DB_NAME"),
-    query={"sslmode": "require"},
 )
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=3,
+    max_overflow=1,
+    connect_args={"sslmode": "require"},
+)
