@@ -1,0 +1,13 @@
+streamlit
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+wordcloud
+kaggle
+sentence_transformers
+psycopg2-binary
+python-dotenv
+SQLAlchemy
+psycopg2
