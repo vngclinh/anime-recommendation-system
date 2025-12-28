@@ -116,8 +116,6 @@ def inject_css():
         background: linear-gradient(90deg, transparent, rgba(160,120,255,0.6), transparent);
         margin: 1.2rem 0;
       }
-/* ---- RECENT SEARCH CHIPS (Compact like Image 2) ---- */
-/* ===== RECENT SEARCH – PILL STYLE (MATCH IMAGE 2) ===== */
 
     </style>
     """, unsafe_allow_html=True)
@@ -154,8 +152,7 @@ def _render_recent_searches(items, username: str, limit: int = 8):
                     continue
 
                 with col:
-                    if st.button(name, key=f"recent_pick_{aid}"):
-                        st.rerun()
+                    st.caption(name)
 
 
 def render():
