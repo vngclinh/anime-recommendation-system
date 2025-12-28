@@ -10,5 +10,4 @@ sentence_transformers
 psycopg2-binary
 python-dotenv
 SQLAlchemy
-psycopg2
 supabase
