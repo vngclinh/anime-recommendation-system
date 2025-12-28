@@ -116,6 +116,8 @@ def inject_css():
         background: linear-gradient(90deg, transparent, rgba(160,120,255,0.6), transparent);
         margin: 1.2rem 0;
       }
+/* ---- RECENT SEARCH CHIPS (Compact like Image 2) ---- */
+/* ===== RECENT SEARCH – PILL STYLE (MATCH IMAGE 2) ===== */
 
     </style>
     """, unsafe_allow_html=True)
@@ -140,7 +142,7 @@ def _render_recent_searches(items, username: str, limit: int = 8):
         st.markdown("<div class='recent-title'>Recent Searches</div>", unsafe_allow_html=True)
 
         per_row = 4
-        max_rows = 2
+        max_rows = 3
         display_ids = recent_ids[: per_row * max_rows]
 
         for start in range(0, len(display_ids), per_row):
@@ -152,7 +154,8 @@ def _render_recent_searches(items, username: str, limit: int = 8):
                     continue
 
                 with col:
-                    st.caption(name)
+                    if st.button(name):
+                        st.rerun()
 
 
 def render():
