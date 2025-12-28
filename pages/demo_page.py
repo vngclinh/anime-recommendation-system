@@ -130,57 +130,6 @@ def _init_demo_state():
     st.session_state.setdefault("demo_recs_key", None)
     st.session_state.setdefault("demo_recs", None)
 
-
-def _apply_history_selection(name: str, anime_id: int) -> None:
-    # safe: set text input value + internal query
-    st.session_state["demo_query"] = name
-    st.session_state["demo_query_input"] = name
-
-    # keep selected name for default index
-    st.session_state["demo_selected_name"] = name
-
-    # IMPORTANT: remove selectbox stored state to avoid "value not in options" error
-    st.session_state.pop("demo_selected_input", None)
-
-    # shared for debug
-    st.session_state["shared_search_query"] = name
-    st.session_state["shared_selected_anime_id"] = int(anime_id)
-
-
-def _render_recent_searches_legacy(items, username: str, limit: int = 8):
-    recent_ids = get_recent_searches(username, limit=limit)
-    if not recent_ids:
-        return
-
-    id_to_name = dict(zip(items["anime_id"].astype(int), items["name"].astype(str)))
-
-    st.markdown(
-        "<div style='font-size:0.85rem;font-weight:600;color:rgba(255,255,255,0.55);margin:0.6rem 0;'>Recent Searches</div>",
-        unsafe_allow_html=True
-    )
-
-    html = "<div class='recent-wrap'>"
-
-    for aid in recent_ids:
-        aid = int(aid)
-        name = id_to_name.get(aid, "")
-        safe = name.replace('"', "&quot;")
-
-        html += f"""
-        <div class="recent-pill"
-             onclick="window.parent.postMessage({{type:'pick', aid:{aid}}}, '*')">
-          <span>{safe}</span>
-          <div class="pill-x"
-               onclick="event.stopPropagation();
-                        window.parent.postMessage({{type:'del', aid:{aid}}}, '*')">
-            ✕
-          </div>
-        </div>
-        """
-
-    html += "</div>"
-
-
 def _render_recent_searches(items, username: str, limit: int = 8):
     recent_ids = get_recent_searches(username, limit=limit)
     if not recent_ids:
@@ -206,7 +155,6 @@ def _render_recent_searches(items, username: str, limit: int = 8):
 
                 with col:
                     if st.button(name, key=f"recent_pick_{aid}"):
-                        _apply_history_selection(name, int(aid))
                         st.rerun()
 
 
