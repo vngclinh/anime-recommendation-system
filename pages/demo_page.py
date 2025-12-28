@@ -1,5 +1,5 @@
 import streamlit as st
-from recommender import recommend_for_anime, load_artifacts, init_shared_cache
+from recommender import recommend_for_anime_cached, load_artifacts, init_shared_cache
 from components.anime_card import anime_card
 from services.anilist import anilist_cover_url
 from services.history_store import (
@@ -322,14 +322,13 @@ def render():
 
     if base_recs is None:
         with st.spinner("Finding anime that fits you..."):
-            base_recs = recommend_for_anime(
-                pack=pack,
+            base_recs = recommend_for_anime_cached(
                 query_anime_id=int(anime_id),
-                mood=mood,
-                top_k=top_k,
-                alpha=alpha,
-                cf_candidates=cf_candidates,
-                cb_candidates=cb_candidates,
+                mood=str(mood),
+                top_k=int(top_k),
+                alpha=float(alpha),
+                cf_candidates=int(cf_candidates),
+                cb_candidates=int(cb_candidates),
             )
         st.session_state["demo_recs_key"] = recs_key
         st.session_state["demo_recs"] = base_recs
