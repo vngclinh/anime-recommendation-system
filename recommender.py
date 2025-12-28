@@ -10,7 +10,19 @@ REQUIRED_FILES = [
     "U.npy", "V.npy", "V_norm.npy", "user_mean.npy",
     "u_ids.npy", "i_ids.npy"
 ]
+def init_shared_cache():
+    st.session_state.setdefault("shared_search_query", "")
+    st.session_state.setdefault("shared_selected_anime_id", None)
 
+    # cache recs chung: chỉ lưu 1 key gần nhất cho gọn
+    st.session_state.setdefault("shared_recs_key", None)
+    st.session_state.setdefault("shared_recs_df", None)
+
+    # lưu params mặc định từ Demo để Debug mở lên khớp
+    st.session_state.setdefault("shared_mood", "Normal")
+    st.session_state.setdefault("shared_alpha", 0.4)
+    st.session_state.setdefault("shared_top_k", 10)
+    st.session_state.setdefault("shared_cf_candidates", 200)
 
 def like_probability(pred_rating: float, threshold: float = 8.0, scale: float = 1.0) -> float:
     x = (pred_rating - threshold) / max(scale, 1e-9)
@@ -225,19 +237,27 @@ def recommend_for_anime(
     results = []
 
     for i, aid in enumerate(cand_list):
-        # 5.1 base hybrid score
-        base_score = alpha * cfs_norm[i] + (1.0 - alpha) * cs_norm[i]
+        # 5.1 base hybrid score (using normalized sims)
+        cf_norm_val = float(cfs_norm[i])
+        content_norm_val = float(cs_norm[i])
+        base_score = alpha * cf_norm_val + (1.0 - alpha) * content_norm_val
 
-        # 5.2 context bonus
+        # 5.2 context bonus (mood)
         rec_genres = safe_split_genres(items.loc[id2row[aid], "genre"])
+        overlap_mood = set()
         context_bonus = 0.0
 
         if mood != "Normal":
             overlap_mood = rec_genres.intersection(target_genres)
             if overlap_mood:
-                context_bonus = 0.15
+                context_bonus = 0.15  # giữ nguyên logic của bạn
 
-        final_score = base_score + context_bonus
+        final_score = float(base_score + context_bonus)
+
+        # score contribution parts (for explain charts)
+        cf_part = float(alpha * cf_norm_val)
+        content_part = float((1.0 - alpha) * content_norm_val)
+        mood_bonus = float(context_bonus)
 
         # 5.3 predict rating mean -> like pct estimate
         if len(q_users) > 0:
@@ -263,11 +283,26 @@ def recommend_for_anime(
             "name": items.loc[id2row[aid], "name"],
             "type": items.loc[id2row[aid], "type"],
             "genre_overlap": ", ".join(overlap_q) if overlap_q else "None",
+
+            # raw sims (to observe)
             "content_sim": float(cs_arr[i]),
             "cf_sim": float(cfs_arr[i]),
-            "hybrid_score": float(final_score),
+
+            # normalized sims (USED in scoring)
+            "content_norm": float(content_norm_val),
+            "cf_norm": float(cf_norm_val),
+
+            # score breakdown (feature influence)
+            "cf_part": float(cf_part),
+            "content_part": float(content_part),
+            "mood_bonus": float(mood_bonus),
+            "base_score": float(base_score),
+            "hybrid_score": float(final_score),   # giữ tên cũ để UI khỏi sửa nhiều
+            "final_score": float(final_score),    # thêm alias cho rõ nghĩa
+
             "pred_rating_mean": float(pred_mean),
             "like_pct_est": float(like_pct),
+            "mood_overlap": ", ".join(sorted(list(overlap_mood))[:6]) if overlap_mood else "None",
             "why": why_text,
         })
 
