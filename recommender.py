@@ -374,7 +374,7 @@ def apply_anti_cluster_penalty(
     pack,
     recs: pd.DataFrame,
     disliked_ids: list[int],
-    beta: float = 0.15,
+    beta: float = 0.05,
     sim_clip_min: float = 0.0,   # chỉ phạt similarity dương
 ) -> pd.DataFrame:
     if recs is None or recs.empty or not disliked_ids:
