@@ -8,8 +8,9 @@ from services.history_store import (
     get_blocked_ids,
     log_search,
     get_recent_searches,
+    get_disliked_ids,
 )
-
+from recommender import apply_anti_cluster_penalty
 
 def inject_css():
     st.markdown("""
@@ -311,10 +312,11 @@ def render():
     # ===== RECOMMEND =====
     alpha = 0.4
     top_k = 10
+    top_k_raw = max(60, top_k * 8)   # lấy nhiều để rerank sau khi phạt
     cf_candidates = 200
     cb_candidates = 200
 
-    recs_key = (int(anime_id), str(mood), float(alpha), int(top_k), int(cf_candidates), int(cb_candidates))
+    recs_key = (int(anime_id), str(mood), float(alpha), int(top_k_raw), int(cf_candidates), int(cb_candidates))
 
     base_recs = None
     if st.session_state.get("demo_recs_key") == recs_key:
@@ -322,14 +324,14 @@ def render():
 
     if base_recs is None:
         with st.spinner("Finding anime that fits you..."):
-            base_recs = recommend_for_anime_cached(
-                query_anime_id=int(anime_id),
-                mood=str(mood),
-                top_k=int(top_k),
-                alpha=float(alpha),
-                cf_candidates=int(cf_candidates),
-                cb_candidates=int(cb_candidates),
-            )
+          base_recs = recommend_for_anime_cached(
+              query_anime_id=int(anime_id),
+              mood=str(mood),
+              top_k=int(top_k_raw),        # <<< dùng raw
+              alpha=float(alpha),
+              cf_candidates=int(cf_candidates),
+              cb_candidates=int(cb_candidates),
+          )
         st.session_state["demo_recs_key"] = recs_key
         st.session_state["demo_recs"] = base_recs
 
@@ -348,6 +350,20 @@ def render():
         return
 
     recs = base_recs[~base_recs["anime_id"].isin(blocked)]
+    # --- Anti-Cluster Penalization (Dislike penalty) ---
+    disliked_ids = get_disliked_ids(username, limit=50)
+
+    beta = 0.15  # có thể làm slider sau
+    recs = apply_anti_cluster_penalty(
+        pack=pack,
+        recs=recs,
+        disliked_ids=disliked_ids,
+        beta=float(beta),
+    )
+
+    # giữ đúng top_k sau khi rerank
+    recs = recs.head(top_k)
+
     if recs.empty:
         st.info("No recommendations found.")
         return
@@ -356,7 +372,8 @@ def render():
     for _, r in recs.iterrows():
         title = str(r["name"])
         img_url = anilist_cover_url(title) or "https://placehold.co/240x340?text=No+Cover"
-        match_score = min(float(r["hybrid_score"]), 1.0) * 100
+        score_for_ui = float(r["final_score"]) if "final_score" in r else float(r["hybrid_score"])
+        match_score = min(score_for_ui, 1.0) * 100
 
         action = anime_card(
             img_url=img_url,

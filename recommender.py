@@ -88,6 +88,8 @@ def load_artifacts():
         V_norm = V_norm.astype(np.float32)
     if user_mean.dtype != np.float32:
         user_mean = user_mean.astype(np.float32)
+    norms = np.linalg.norm(item_emb, axis=1, keepdims=True)
+    item_emb_norm = item_emb / np.maximum(norms, 1e-12)
 
     # types
     items["anime_id"] = items["anime_id"].astype(int)
@@ -129,6 +131,7 @@ def load_artifacts():
         "global_mean": global_mean,
         "q_users_map": q_users_map,
         "genre_sets": genre_sets,
+        "item_emb_norm": item_emb_norm
     }
 
 
@@ -366,3 +369,58 @@ def recommend_for_anime_cached(
         max_q_users=int(max_q_users),
         seed=int(seed),
     )
+
+def apply_anti_cluster_penalty(
+    pack,
+    recs: pd.DataFrame,
+    disliked_ids: list[int],
+    beta: float = 0.15,
+    sim_clip_min: float = 0.0,   # chỉ phạt similarity dương
+) -> pd.DataFrame:
+    if recs is None or recs.empty or not disliked_ids:
+        return recs
+
+    id2row = pack["id2row"]
+    item_emb_norm = pack["item_emb_norm"]
+
+    # lọc disliked có trong embedding
+    dis_rows = [id2row[d] for d in disliked_ids if d in id2row]
+    if not dis_rows:
+        recs = recs.copy()
+        recs["dislike_max_sim"] = 0.0
+        recs["penalty"] = 0.0
+        recs["final_score"] = recs["hybrid_score"].astype(float)
+        return recs
+
+    # candidate rows
+    cand_ids = recs["anime_id"].astype(int).values
+    cand_rows = [id2row[a] for a in cand_ids if a in id2row]
+
+    # nếu có candidate không có row thì vẫn giữ, sim=0
+    recs = recs.copy()
+    max_sim_all = np.zeros(len(recs), dtype=np.float32)
+
+    cand_vecs = item_emb_norm[np.array(cand_rows, dtype=np.int32)]  # (m, dim)
+    dis_vecs  = item_emb_norm[np.array(dis_rows, dtype=np.int32)]   # (d, dim)
+
+    # cosine sim = dot vì đã normalize
+    sim = cand_vecs @ dis_vecs.T  # (m, d)
+    sim = np.clip(sim, sim_clip_min, 1.0)
+    max_sim = sim.max(axis=1).astype(np.float32)  # (m,)
+
+    # gán về đúng thứ tự recs
+    ptr = 0
+    for i, aid in enumerate(cand_ids):
+        if aid in id2row:
+            max_sim_all[i] = float(max_sim[ptr])
+            ptr += 1
+
+    penalty = beta * max_sim_all
+    recs["dislike_max_sim"] = max_sim_all
+    recs["penalty"] = penalty
+    recs["final_score"] = recs["hybrid_score"].astype(float) - penalty
+    recs["final_score"] = recs["final_score"].clip(lower=0.0)
+
+    # sort theo final_score mới
+    recs = recs.sort_values("final_score", ascending=False).reset_index(drop=True)
+    return recs

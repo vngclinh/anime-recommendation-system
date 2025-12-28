@@ -134,3 +134,22 @@ def delete_search(username: str, seed_anime_id: int) -> None:
         )
     except Exception as e:
         print("⚠️ delete_search failed:", e)
+
+def get_disliked_ids(username: str, limit: int = 50) -> List[int]:
+    try:
+        sb = _get_sb()
+        resp = (
+            sb.table("user_ratings")
+            .select("anime_id")
+            .eq("username", username)
+            .eq("status", "disliked")
+            # .order("updated_at", desc=True)  # nếu bảng có updated_at
+            .limit(int(limit))
+            .execute()
+        )
+        rows = resp.data or []
+        return [int(r["anime_id"]) for r in rows if r.get("anime_id") is not None]
+    except Exception as e:
+        print("⚠️ get_disliked_ids failed:", e)
+        return []
+
